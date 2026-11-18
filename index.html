@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R3D to MP4 for 3DS Recorder</title>
+<meta name="description" content="Convert 3DS Recorder .r3d recordings to MP4 right in your browser. Nothing is uploaded.">
+<meta name="theme-color" content="#4fc3e8">
+<meta property="og:title" content="R3D to MP4 for 3DS Recorder">
+<meta property="og:description" content="Turn 3DS Recorder clips into MP4s in your browser. Nothing is uploaded.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='4' width='52' height='26' rx='7' fill='%234fc3e8'/%3E%3Crect x='6' y='34' width='52' height='26' rx='7' fill='%232a93ba'/%3E%3Crect x='14' y='9' width='36' height='16' rx='2' fill='%230f141b'/%3E%3Crect x='19' y='38' width='26' height='18' rx='2' fill='%23eaf6fb'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/m-plus-rounded-1c-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="statusbar">
+    <span class="pill"><span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Internet</span>
+    <span class="spacer"></span>
+    <a class="gh" href="https://github.com/BolgarMaxym97/3ds-recorder">3DS Recorder on GitHub</a>
+    <span class="clock" id="clock" aria-hidden="true"></span>
+    <span class="battery" aria-hidden="true"><i></i></span>
+</header>
+
+<main>
+    <div class="hero">
+
+        <div class="intro">
+            <h1>Turn 3DS Recorder clips into MP4s</h1>
+            <p class="lede">Drop in the <code>.r3d</code> file that 3DS Recorder saved to your SD card and get an MP4 back. It all runs in this tab, so your gameplay <strong>never leaves your computer</strong>.</p>
+            <div class="picker">
+                <button class="key go" id="pickBtn" type="button">Choose a .r3d file</button>
+                <span class="hint">or drop one anywhere on this page</span>
+            </div>
+            <input type="file" id="fileInput" accept=".r3d,application/octet-stream" hidden>
+        </div>
+
+        <div class="console-wrap">
+            <div class="console" id="console">
+                <div class="shell top">
+                    <div class="bezel">
+                        <div class="screen">
+                            <div class="idle top" id="idleTop">
+                                <div class="rec"><i></i>Not recording</div>
+                                <div>Waiting for a .r3d file</div>
+                                <small>Open one on the touch screen below</small>
+                            </div>
+                            <canvas id="topCanvas" width="400" height="240" hidden aria-label="Top screen of the recording"></canvas>
+                            <div class="off" id="topOff" hidden>The top screen was not recorded</div>
+                        </div>
+                    </div>
+                    <div class="depth"><input type="range" id="depth" min="0" max="100" value="0" aria-label="3D depth slider"></div>
+                </div>
+
+                <div class="hinge">
+                    <div class="grille" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                    <div class="led" id="led" role="img" aria-label="Notification light"></div>
+                    <div class="grille right" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                </div>
+
+                <div class="shell bottom">
+                    <div class="bezel">
+                        <div class="screen" id="bottomScreen">
+                            <button class="idle bottom" id="idleBottom" type="button">
+                                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M32 42V12M20 24l12-12 12 12M10 40v10a4 4 0 0 0 4 4h36a4 4 0 0 0 4-4V40"/></svg>
+                                Touch to open a .r3d
+                                <span>or drop one anywhere</span>
+                            </button>
+                            <canvas id="botCanvas" width="320" height="240" hidden aria-label="Bottom screen of the recording"></canvas>
+                            <div class="off" id="botOff" hidden>The bottom screen was not recorded</div>
+                        </div>
+                    </div>
+                    <div class="circle-pad" aria-hidden="true"></div>
+                    <div class="dpad" aria-hidden="true"></div>
+                    <div class="face">
+                        <button class="x" type="button" tabindex="-1" aria-hidden="true">X</button>
+                        <button class="y" type="button" tabindex="-1" aria-hidden="true">Y</button>
+                        <button class="a" id="btnA" type="button" aria-label="A: choose a .r3d file" title="A: open">A</button>
+                        <button class="b" type="button" tabindex="-1" aria-hidden="true">B</button>
+                    </div>
+                    <div class="small-btns">
+                        <span aria-hidden="true"></span>
+                        <button id="btnHome" type="button" aria-label="HOME: back to the top" title="HOME"></button>
+                        <span aria-hidden="true"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scrub" id="scrub">
+                <span id="tNow">0:00.0</span>
+                <input class="line" type="range" id="scrubber" min="0" max="1000" value="0" disabled aria-label="Preview position">
+                <span id="tTotal">0:00.0</span>
+            </div>
+        </div>
+
+        <section class="panel" id="panel" data-state="empty" aria-live="polite" aria-label="Your recording">
+
+            <div class="file-line" id="blkFile">
+                <strong id="fileName"></strong>
+                <span class="meta" id="fileMeta"></span>
+                <button class="link swap" id="swapBtn" type="button">Choose another file</button>
+            </div>
+
+            <dl class="facts" id="blkFacts">
+                <div><dt>Length</dt><dd id="fLength"></dd></div>
+                <div><dt>Recorded</dt><dd id="fDate"></dd></div>
+                <div><dt>Console</dt><dd id="fConsole"></dd></div>
+                <div><dt>Screens</dt><dd id="fScreens"></dd></div>
+                <div><dt>Frame rate</dt><dd id="fFps"></dd></div>
+                <div><dt>Sound</dt><dd id="fSound"></dd></div>
+            </dl>
+
+            <ul class="notes" id="blkNotes" hidden></ul>
+
+            <form class="options" id="blkOptions" onsubmit="return false">
+                <fieldset>
+                    <legend>Screens</legend>
+                    <div class="seg" role="radiogroup" aria-label="Screens">
+                        <label><input type="radio" name="layout" value="both" checked><span>Both</span></label>
+                        <label><input type="radio" name="layout" value="top"><span>Top only</span></label>
+                        <label><input type="radio" name="layout" value="bottom"><span>Bottom only</span></label>
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <legend>Size</legend>
+                    <div class="seg" role="radiogroup" aria-label="Size">
+                        <label><input type="radio" name="scale" value="1" checked><span>1×</span></label>
+                        <label><input type="radio" name="scale" value="2"><span>2×</span></label>
+                        <label><input type="radio" name="scale" value="3"><span>3×</span></label>
+                    </div>
+                    <p class="help" id="sizeHelp">1× is the real 3DS resolution. 2× and 3× use sharp pixels, which holds up better on phones.</p>
+                </fieldset>
+                <fieldset>
+                    <legend>Quality</legend>
+                    <div class="seg" role="radiogroup" aria-label="Quality">
+                        <label><input type="radio" name="quality" value="small"><span>Smaller file</span></label>
+                        <label><input type="radio" name="quality" value="balanced" checked><span>Balanced</span></label>
+                        <label><input type="radio" name="quality" value="high"><span>Sharper</span></label>
+                    </div>
+                </fieldset>
+                <div>
+                    <label class="switch"><input type="checkbox" id="sound" checked><span class="track"></span>Keep the sound</label>
+                    <p class="help" id="soundHelp" hidden></p>
+                </div>
+                <p class="estimate" id="estimate"></p>
+            </form>
+
+            <div class="actions" id="blkActions">
+                <button class="key go" id="convertBtn" type="button">Convert to MP4</button>
+            </div>
+
+            <div class="progress" id="blkProgress" hidden>
+                <div class="row"><span id="progLabel">Reading the file</span><span id="progText"></span></div>
+                <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="meter"><i id="meterFill"></i></div>
+                <div class="actions" id="cancelRow"><button class="key quiet" id="cancelBtn" type="button">Cancel</button></div>
+            </div>
+
+            <div class="result" id="blkResult" hidden>
+                <h2>Your MP4 is ready</h2>
+                <video id="video" controls playsinline preload="metadata"></video>
+                <p class="stats" id="resultStats"></p>
+                <div class="actions">
+                    <a class="key go" id="dl" download="recording.mp4" href="#">Download MP4</a>
+                    <button class="key quiet" id="againBtn" type="button">Change settings</button>
+                </div>
+            </div>
+
+            <div class="error" id="blkError" hidden>
+                <ul class="notes"><li class="bad" id="errText" role="alert"></li></ul>
+                <div class="actions" style="margin-top:16px"><button class="key" id="errPick" type="button">Choose another file</button></div>
+            </div>
+        </section>
+    </div>
+
+    <section class="block" id="how">
+        <div>
+            <h2>Recording takes two button presses</h2>
+            <p class="sub">3DS Recorder is a homebrew for Luma3DS that records the whole console: games, the HOME Menu and apps, both screens, with sound. No capture card, no PC.</p>
+            <p class="sub">The console turns each recording into an MP4 by itself. This page does the same job on a computer, which is handy once the files are off the SD card or when you want a bigger picture.</p>
+            <ul class="legend">
+                <li class="blue"><i></i>Blue for a moment: the recorder is ready</li>
+                <li class="red"><i></i>Red, breathing: recording</li>
+                <li class="green"><i></i>Green twice: saved</li>
+                <li class="red"><i></i>Red three times: something went wrong, usually a full SD card</li>
+            </ul>
+        </div>
+        <ol class="cable">
+            <li class="red">
+                <h3>Press <kbd>R</kbd> + <kbd>SELECT</kbd></h3>
+                <p>Anywhere: in a game, in the HOME Menu, in an app. The light breathes red while it records. You can even close the 3DS Recorder app and it keeps going in the background.</p>
+            </li>
+            <li class="green">
+                <h3>Press it again to stop</h3>
+                <p>Two green blinks and the clip is on the SD card.</p>
+            </li>
+            <li class="grey">
+                <h3>Copy the .r3d to your computer</h3>
+                <p>Recordings live in <code>/3ds/recorder/recordings/</code>. Next to each <code>.r3d</code> the console writes an <code>.mp4</code> of its own. In the Gallery, press <kbd>Y</kbd> on a clip for a QR code that sends it to your phone over Wi-Fi.</p>
+            </li>
+            <li class="blue">
+                <h3>Convert it here</h3>
+                <p>Choose the file at the top of this page, pick the screens, the size and whether to keep the sound, then press Convert.</p>
+            </li>
+        </ol>
+    </section>
+
+    <section class="block" id="inside">
+        <div>
+            <h2>What's inside an .r3d</h2>
+            <p class="sub">A recording is a long list of small records: a picture of one screen, a slice of sound, the next picture. The 3DS stores its screens sideways, one column at a time, so the file does too.</p>
+            <p class="sub">An Old 3DS has a 268 MHz processor and an SD card to keep up with, so the recorder uses whichever of six picture formats it can finish in time. Mostly that means saving only the pixels that changed.</p>
+            <p class="sub">Open a file and the table fills in with what's in yours.</p>
+        </div>
+        <div>
+            <table class="codecs" id="codecTable">
+                <thead><tr><th>Format</th><th>How it works</th><th class="num">In your file</th></tr></thead>
+                <tbody>
+                    <tr data-type="Y" class="c-Y"><td><span class="sw"></span>XR32</td><td>Lossless. Keeps only the pixel pairs that changed since the last frame.</td><td class="num">–</td></tr>
+                    <tr data-type="H" class="c-H"><td><span class="sw"></span>XR32 + Huffman</td><td>Lossless. The same, packed a little tighter.</td><td class="num">–</td></tr>
+                    <tr data-type="Q" class="c-Q"><td><span class="sw"></span>Q565</td><td>Lossless. A whole picture on its own, for scenes where everything moves.</td><td class="num">–</td></tr>
+                    <tr data-type="C" class="c-C"><td><span class="sw"></span>C420</td><td>Lossy, like video. A whole picture at half the size, for when the processor can't keep up.</td><td class="num">–</td></tr>
+                    <tr data-type="X" class="c-X"><td><span class="sw"></span>XOR-RLE</td><td>Lossless. The older way of saving changed pixels.</td><td class="num">–</td></tr>
+                    <tr data-type="F" class="c-F"><td><span class="sw"></span>Raw</td><td>Uncompressed frames.</td><td class="num">–</td></tr>
+                    <tr data-type="A" class="c-A"><td><span class="sw"></span>Sound</td><td>Stereo 16-bit samples. Silence isn't stored, so gaps in time are quiet.</td><td class="num">–</td></tr>
+                </tbody>
+            </table>
+            <div class="xbar" id="xbar" hidden></div>
+            <p class="help" id="xbarHelp" hidden>Each colour is that format's share of the file's bytes.</p>
+        </div>
+    </section>
+
+    <section class="block" id="faq">
+        <div>
+            <h2>Questions</h2>
+            <p class="sub">The short answers.</p>
+        </div>
+        <div>
+            <details>
+                <summary>Does my recording get uploaded?</summary>
+                <div><p>No. This page has no server behind it. Reading the file, decoding the frames and encoding the MP4 all happen in your browser, using its built-in video encoder. Close the tab and everything is gone.</p></div>
+            </details>
+            <details>
+                <summary>Why is the .r3d so much bigger than the MP4?</summary>
+                <div><p>The recorder has to keep up with a running game on a small processor, so it writes frames in formats that are quick to save instead of small: up to about 320 MB per minute in 3D games. The MP4 works out to around 10 MB per minute.</p></div>
+            </details>
+            <details>
+                <summary>Why are there black bars?</summary>
+                <div><p>The top screen is 400 pixels wide and the bottom one is 320. With both stacked, the bottom screen sits in the middle with 40 pixels of black on each side. Choose Top only or Bottom only to export one screen.</p></div>
+            </details>
+            <details>
+                <summary>Which size should I pick?</summary>
+                <div><p>1× is the real 3DS resolution: 400 × 480 for both screens. 2× and 3× scale it up with sharp pixels, which looks much better on phones and when a site re-compresses the video. The file gets bigger too.</p></div>
+            </details>
+            <details>
+                <summary>There's no sound, or it won't play</summary>
+                <div><p>Which audio formats a browser can encode depends on the browser and the system. Where AAC is available the MP4 uses it, and it plays everywhere. If it isn't, this page saves the sound as Opus inside the MP4, which most modern players handle and a few older ones don't. The note under the options says which one you'll get.</p></div>
+            </details>
+            <details>
+                <summary>It says my browser can't convert</summary>
+                <div><p>Use a recent Chrome, Edge or Safari on a computer. The converter relies on WebCodecs, the browser's own video encoder, and some browsers and older phones don't have it yet.</p></div>
+            </details>
+            <details>
+                <summary>What if a recording was cut short?</summary>
+                <div><p>It converts as far as it goes, and the page tells you. If the power died mid-recording, open 3DS Recorder on the console once first: it recovers the file the next time the app opens.</p></div>
+            </details>
+            <details>
+                <summary>The 3D depth slider doesn't do anything</summary>
+                <div><p>Correct. Recordings are flat. Move it anyway and watch the title.</p></div>
+            </details>
+        </div>
+    </section>
+</main>
+
+<footer>
+    <div class="in">
+        <p>Made by <a href="https://github.com/CodyMKW">CodyMKW</a>. Source for this page: <a href="https://github.com/CodyMKW/r3d-converter-page">CodyMKW/r3d-converter-page</a>. Not affiliated with Nintendo or with the 3DS Recorder project. Nintendo 3DS is a trademark of Nintendo.</p>
+        <p><a href="https://github.com/BolgarMaxym97/3ds-recorder">3DS Recorder</a> is by BolgarMaxym97 (made in Ukraine 🇺🇦) and released under the MIT license. The .r3d decoders on this page are a JavaScript port of the ones in its <code>codec/</code> folder. MP4 files are written with <a href="https://github.com/Vanilagy/mp4-muxer">mp4-muxer</a> by Vanilagy (MIT).</p>
+    </div>
+</footer>
+
+<div class="veil" id="veil"><div>Drop it to open the recording</div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="vendor/mp4-muxer.js"></script>
+<script src="js/r3d.js"></script>
+<script src="js/convert.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
